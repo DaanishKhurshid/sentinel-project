@@ -1,40 +1,58 @@
 from typing import TypedDict, List, Optional
+from langgraph.graph import StateGraph, END
+from gateway.server import SentinelGateway
+from agents.crew import SentinelAgents
+from crewai import Crew, Task, Process
 
+# State definition
 class SentinelState(TypedDict):
-    """The shared state for the Sentinel system."""
     raw_logs: Optional[List[dict]]
     anomaly_analysis: Optional[str]
     root_cause: Optional[str]
     remediation_plan: Optional[str]
     is_resolved: bool
 
-
-from gateway.server import SentinelGateway
-
+# Nodes
 def fetch_logs_node(state: SentinelState):
-    """Fetches logs from the gateway and updates the state."""
-    print("--- Fetching logs from Gateway ---")
-    logs = SentinelGateway.get_system_logs()
-    return {"raw_logs": logs}
+    print("--- Fetching logs ---")
+    return {"raw_logs": SentinelGateway.get_system_logs()}
 
-from langgraph.graph import StateGraph, END
+def monitor_node(state: SentinelState):
+    print("--- Running Monitor Agent ---")
+    
+    # Get your agent from crew.py
+    monitor_agent = SentinelAgents.monitor_agent()
+    
+    # Define the task
+    task = Task(
+        description=f"Analyze these logs for errors: {state['raw_logs']}",
+        expected_output="A summary of errors detected.",
+        agent=monitor_agent
+    )
+    
+    # Create the Crew
+    monitor_crew = Crew(
+        agents=[monitor_agent],
+        tasks=[task],
+        process=Process.sequential
+    )
+    
+    # Run the Crew
+    result = monitor_crew.kickoff()
+    return {"anomaly_analysis": str(result)}
 
-# Initialize the graph with your state
+# Graph setup
 workflow = StateGraph(SentinelState)
-
-# Add your first node (the one we created)
 workflow.add_node("fetch_logs", fetch_logs_node)
+workflow.add_node("monitor", monitor_node)
 
-# Set the entry point
 workflow.set_entry_point("fetch_logs")
+workflow.add_edge("fetch_logs", "monitor")
+workflow.add_edge("monitor", END)
 
-# Connect the node to the end
-workflow.add_edge("fetch_logs", END)
-
-# Compile the graph
 app = workflow.compile()
 
 if __name__ == "__main__":
-    print("--- Running Graph ---")
-    final_state = app.invoke({}) # We pass an empty dict to start
-    print("Final State logs:", final_state.get("raw_logs"))
+    final_state = app.invoke({})
+    print("--- Final Analysis ---")
+    print(final_state.get("anomaly_analysis"))
