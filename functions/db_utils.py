@@ -1,5 +1,4 @@
 # This handles the database connection safely
-
 import sqlite3
 
 def query_database(query: str):
