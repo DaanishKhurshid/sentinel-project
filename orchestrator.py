@@ -19,9 +19,11 @@ os.environ["LANGSMITH_PROJECT"] = "sentinel-project"
 llm = ChatGoogleGenerativeAI(
     model="gemini-2.5-flash",
     google_api_key=os.getenv("GEMINI_API_KEY"),
-    system_instruction="""You are a Sentinel monitoring system agent. 
-    Your ONLY task is to analyze logs, diagnose root causes, and suggest remediation.
-    If a query is outside this scope, respond: 'I am sorry, that request is outside my operational scope.'"""
+    model_kwargs={
+        "system_instruction": """You are a Sentinel monitoring system agent. 
+        Your ONLY task is to analyze logs, diagnose root causes, and suggest remediation.
+        If a query is outside this scope, respond: 'I am sorry, that request is outside my operational scope.'"""
+    }
 )
 
 # 3. State
